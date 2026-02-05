@@ -11,12 +11,25 @@ export async function GET(request: NextRequest) {
     const polygonStr = searchParams.get('polygon');
     
     // Parse polygon from query string (format: "lat,lng;lat,lng;...")
-    let polygon: Array<{lat: number; lng: number}> | undefined;
+    // Convert to bounding box since Repliers doesn't support polygon search directly
+    let bounds: { north: number; south: number; east: number; west: number } | undefined;
     if (polygonStr) {
-      polygon = polygonStr.split(';').map(pair => {
+      const points = polygonStr.split(';').map(pair => {
         const [lat, lng] = pair.split(',').map(Number);
         return { lat, lng };
       }).filter(p => !isNaN(p.lat) && !isNaN(p.lng));
+      
+      if (points.length >= 3) {
+        // Calculate bounding box from polygon points
+        const lats = points.map(p => p.lat);
+        const lngs = points.map(p => p.lng);
+        bounds = {
+          north: Math.max(...lats),
+          south: Math.min(...lats),
+          east: Math.max(...lngs),
+          west: Math.min(...lngs),
+        };
+      }
     }
     
     const filters: SearchFilters = {
@@ -28,9 +41,9 @@ export async function GET(request: NextRequest) {
       minBaths: searchParams.get('minBaths') ? parseInt(searchParams.get('minBaths')!) : undefined,
       city,
       zip,
-      polygon,
+      bounds,
       // Only default to Travis if no location filter provided
-      area: searchParams.get('area') || (zip || city || polygon ? undefined : 'Travis'),
+      area: searchParams.get('area') || (zip || city || bounds ? undefined : 'Travis'),
       sort: (searchParams.get('sort') as SearchFilters['sort']) || 'date-desc',
     };
 
