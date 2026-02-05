@@ -191,14 +191,22 @@ export function LeafletMap({
     mapRef.current.panTo([selectedListing.coordinates.lat, selectedListing.coordinates.lng]);
   }, [isLoaded, selectedListing]);
 
-  // Pan to selected community
+  // Fit map to selected community polygon
   useEffect(() => {
-    if (!isLoaded || !mapRef.current || !selectedCommunity) return;
-    if (selectedCommunity.bounds) {
+    if (!isLoaded || !mapRef.current || !selectedCommunity || !L) return;
+    
+    // Calculate bounds from polygon coordinates
+    if (selectedCommunity.coordinates && selectedCommunity.coordinates.length >= 3) {
+      const latLngs = selectedCommunity.coordinates.map(c => 
+        Array.isArray(c) ? L!.latLng(c[0], c[1]) : L!.latLng(c.lat, c.lng)
+      );
+      const bounds = L.latLngBounds(latLngs);
+      mapRef.current.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
+    } else if (selectedCommunity.bounds) {
       const { north, south, east, west } = selectedCommunity.bounds;
-      mapRef.current.fitBounds([[south, west], [north, east]], { padding: [50, 50] });
+      mapRef.current.fitBounds([[south, west], [north, east]], { padding: [30, 30], maxZoom: 14 });
     } else if (selectedCommunity.center) {
-      mapRef.current.panTo([selectedCommunity.center.lat, selectedCommunity.center.lng]);
+      mapRef.current.setView([selectedCommunity.center.lat, selectedCommunity.center.lng], 13);
     }
   }, [isLoaded, selectedCommunity]);
 
