@@ -3,12 +3,14 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Header } from '@/components/ui/Header';
 import { FilterBar } from '@/components/search/FilterBar';
+import { AISearchBar } from '@/components/search/AISearchBar';
 import { ListingsGrid } from '@/components/listings/ListingsGrid';
 import { austinCommunities } from '@/data/austin-communities';
 import { Listing, SearchFilters } from '@/types/listing';
 import { CommunityPolygon } from '@/types/community';
 import { useListings } from '@/hooks/useListings';
 import { ListingDetailOverlay } from '@/components/listings/ListingDetailOverlay';
+import { SparklesIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
 
 // Lazy load Leaflet map to avoid SSR issues
 const LeafletMap = lazy(() => 
@@ -30,26 +32,38 @@ export default function SearchPage() {
   const [selectedCommunity, setSelectedCommunity] = useState<CommunityPolygon | null>(null);
   const [viewMode, setViewMode] = useState<'split' | 'list' | 'map'>('split');
   const [mapBounds, setMapBounds] = useState<{ north: number; south: number; east: number; west: number } | null>(null);
+  
+  // AI Search state
+  const [searchMode, setSearchMode] = useState<'filters' | 'ai'>('ai'); // Default to AI
+  const [aiListings, setAiListings] = useState<Listing[]>([]);
+  const [aiTotal, setAiTotal] = useState(0);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [isAiActive, setIsAiActive] = useState(false);
 
   const { 
-    listings, 
+    listings: filterListings, 
     loading, 
     error, 
-    total, 
+    total: filterTotal, 
     hasMore, 
     fetchListings, 
     loadMore 
-  } = useListings({ autoFetch: true });
+  } = useListings({ autoFetch: searchMode === 'filters' });
+  
+  // Use AI listings when AI search is active, otherwise use filter listings
+  const listings = isAiActive ? aiListings : filterListings;
+  const total = isAiActive ? aiTotal : filterTotal;
 
-  // Refetch when filters change
+  // Refetch when filters change (only in filter mode)
   useEffect(() => {
-    const searchFilters: SearchFilters = {
-      ...filters,
-      // Add community polygon if selected
-      polygon: selectedCommunity?.coordinates,
-    };
-    fetchListings(searchFilters);
-  }, [filters, selectedCommunity]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (searchMode === 'filters' || !isAiActive) {
+      const searchFilters: SearchFilters = {
+        ...filters,
+        polygon: selectedCommunity?.coordinates,
+      };
+      fetchListings(searchFilters);
+    }
+  }, [filters, selectedCommunity, searchMode, isAiActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSelectCommunity = (community: CommunityPolygon) => {
     if (selectedCommunity?.id === community.id) {
@@ -60,18 +74,84 @@ export default function SearchPage() {
   };
 
   const handleFiltersChange = (newFilters: SearchFilters) => {
+    setIsAiActive(false);
     setFilters(newFilters);
+  };
+
+  const handleAIResults = (results: { listings: Listing[]; total: number; summary: string; nlpId: string }) => {
+    setAiListings(results.listings);
+    setAiTotal(results.total);
+    setAiSummary(results.summary);
+    setIsAiActive(true);
+  };
+
+  const handleAIClear = () => {
+    setAiListings([]);
+    setAiTotal(0);
+    setAiSummary(null);
+    setIsAiActive(false);
+    fetchListings(filters);
   };
 
   return (
     <div className="flex flex-col h-screen">
       <Header />
       
-      <FilterBar 
-        filters={filters} 
-        onFiltersChange={handleFiltersChange}
-        totalResults={total}
-      />
+      {/* Search Mode Toggle + Search Bar */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-30">
+        {/* Mode Toggle */}
+        <div className="px-4 pt-3 pb-2 flex items-center gap-4">
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => { setSearchMode('ai'); if (!isAiActive) fetchListings(filters); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                searchMode === 'ai'
+                  ? 'bg-white text-spyglass-orange shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <SparklesIcon className="w-4 h-4" />
+              AI Search
+            </button>
+            <button
+              onClick={() => { setSearchMode('filters'); setIsAiActive(false); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                searchMode === 'filters'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <AdjustmentsHorizontalIcon className="w-4 h-4" />
+              Filters
+            </button>
+          </div>
+          
+          {searchMode === 'ai' && (
+            <p className="text-sm text-gray-500 hidden md:block">
+              Describe what you're looking for in plain English
+            </p>
+          )}
+        </div>
+
+        {/* AI Search Bar */}
+        {searchMode === 'ai' && (
+          <div className="px-4 pb-3">
+            <AISearchBar
+              onResults={handleAIResults}
+              onClear={handleAIClear}
+            />
+          </div>
+        )}
+
+        {/* Traditional Filters */}
+        {searchMode === 'filters' && (
+          <FilterBar 
+            filters={filters} 
+            onFiltersChange={handleFiltersChange}
+            totalResults={total}
+          />
+        )}
+      </div>
 
       {/* Selected community indicator */}
       {selectedCommunity && (
