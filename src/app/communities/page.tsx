@@ -5,12 +5,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Header } from '@/components/ui/Header';
 import { 
   COMMUNITIES, 
-  FEATURED_COMMUNITIES,
-  TRAVIS_COMMUNITIES,
-  WILLIAMSON_COMMUNITIES,
-  HAYS_COMMUNITIES,
   CommunityPolygon 
 } from '@/data/communities-polygons';
+
+// Derived filtered lists
+const FEATURED_COMMUNITIES = COMMUNITIES.filter(c => c.featured);
+const TRAVIS_COMMUNITIES = COMMUNITIES.filter(c => c.county === 'Travis');
+const WILLIAMSON_COMMUNITIES = COMMUNITIES.filter(c => c.county === 'Williamson');
+const HAYS_COMMUNITIES = COMMUNITIES.filter(c => c.county === 'Hays');
 import { MagnifyingGlassIcon, MapPinIcon, StarIcon } from '@heroicons/react/24/outline';
 
 type FilterTab = 'all' | 'featured' | 'travis' | 'williamson' | 'hays';

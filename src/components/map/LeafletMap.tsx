@@ -66,7 +66,6 @@ export function LeafletMap({
           // Touch handling
           touchZoom: true,
           dragging: true,
-          tap: true,
           // Zoom snapping for smoother behavior
           zoomSnap: 0.5,
           zoomDelta: 0.5,
