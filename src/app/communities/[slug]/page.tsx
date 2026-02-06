@@ -13,6 +13,7 @@ import ContactModal from '@/components/forms/ContactModal';
 import CommunityStats from '@/components/community/CommunityStats';
 import CommunityDescription from '@/components/community/CommunityDescription';
 import { useDismissedListings } from '@/hooks/useDismissedListings';
+import { FilterBar, FilterState, defaultFilters } from '@/components/filters';
 
 // Lazy load map
 const LeafletMap = lazy(() =>
@@ -52,10 +53,38 @@ function CommunityDetailContent() {
   const { dismiss, isDismissed, dismissedCount, restoreAll } = useDismissedListings();
   const [showDismissed, setShowDismissed] = useState(false);
   
-  // Filter out dismissed listings (unless showDismissed is true)
-  const visibleListings = showDismissed 
-    ? listings 
-    : listings.filter(l => !isDismissed(l.mlsNumber));
+  // Filters
+  const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  
+  // Filter listings based on all criteria
+  const filteredListings = listings.filter(listing => {
+    // Dismissed filter
+    if (!showDismissed && isDismissed(listing.mlsNumber)) return false;
+    
+    // Price filters
+    if (filters.minPrice && listing.price < filters.minPrice) return false;
+    if (filters.maxPrice && listing.price > filters.maxPrice) return false;
+    
+    // Beds filter
+    if (filters.minBeds !== undefined && listing.bedrooms < filters.minBeds) return false;
+    
+    // Baths filter
+    if (filters.minBaths !== undefined && listing.bathrooms < filters.minBaths) return false;
+    
+    // Home type filter
+    if (filters.homeTypes?.length && !filters.homeTypes.includes(listing.propertyType)) return false;
+    
+    // Sqft filters
+    if (filters.minSqft && listing.sqft < filters.minSqft) return false;
+    if (filters.maxSqft && listing.sqft > filters.maxSqft) return false;
+    
+    // Days on market
+    if (filters.maxDaysOnMarket && listing.daysOnMarket > filters.maxDaysOnMarket) return false;
+    
+    return true;
+  });
+  
+  const visibleListings = filteredListings;
 
   // Fetch listings for this community using polygon
   useEffect(() => {
@@ -236,7 +265,20 @@ function CommunityDetailContent() {
 
       {/* Tab Content */}
       {activeTab === 'listings' && (
-        <div className="flex-1 flex overflow-hidden" style={{ height: isEmbed ? 'calc(100vh - 100px)' : 'calc(100vh - 240px)' }}>
+        <div className="flex-1 flex flex-col overflow-hidden" style={{ height: isEmbed ? 'calc(100vh - 100px)' : 'calc(100vh - 240px)' }}>
+          {/* Filter Bar */}
+          {!isEmbed && (
+            <div className="bg-white border-b border-gray-200 px-4 py-3">
+              <FilterBar
+                filters={filters}
+                onFiltersChange={setFilters}
+                totalCount={visibleListings.length}
+                showAISearch={false}
+              />
+            </div>
+          )}
+          
+          <div className="flex-1 flex overflow-hidden">
           <div className="w-full md:w-1/2 lg:w-[45%] overflow-y-auto bg-gray-50">
             <div className="sticky top-0 bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center justify-between z-10">
               <span className="text-sm text-gray-600">
@@ -287,6 +329,7 @@ function CommunityDetailContent() {
                 onHoverListing={setHoveredListing}
               />
             </Suspense>
+          </div>
           </div>
         </div>
       )}
