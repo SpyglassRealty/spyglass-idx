@@ -150,36 +150,53 @@ export function LeafletMap({
         .addTo(map);
 
       // Create Zillow-style popup card
+      const photoCount = listing.photos?.length || 0;
       const popupContent = `
-        <div class="listing-popup" style="width: 280px; cursor: pointer;" onclick="window.location.href='/listing/${listing.mlsNumber}'">
+        <div class="listing-popup" style="width: 300px; cursor: pointer; background: white; border-radius: 12px; overflow: hidden;">
           <div style="position: relative;">
             <img 
               src="${listing.photos?.[0] || '/placeholder-home.jpg'}" 
               alt="${listing.address?.street || 'Property'}"
-              style="width: 100%; height: 160px; object-fit: cover; border-radius: 8px 8px 0 0;"
+              style="width: 100%; height: 180px; object-fit: cover;"
               onerror="this.src='/placeholder-home.jpg'"
             />
-            <div style="position: absolute; top: 8px; left: 8px; background: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
-              ${listing.status}
+            <!-- Status badge -->
+            <div style="position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.95); padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; color: #333; text-transform: capitalize;">
+              ${listing.status || 'Active'}
             </div>
-            ${listing.photos?.length > 1 ? `
-              <div style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px;">
-                1/${listing.photos.length}
+            <!-- Heart button -->
+            <button style="position: absolute; top: 10px; right: 10px; width: 36px; height: 36px; background: rgba(255,255,255,0.9); border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="event.stopPropagation();">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+              </svg>
+            </button>
+            <!-- Photo count indicator -->
+            ${photoCount > 1 ? `
+              <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px;">
+                ${Array.from({length: Math.min(photoCount, 6)}, (_, i) => `
+                  <div style="width: 6px; height: 6px; border-radius: 50%; background: ${i === 0 ? 'white' : 'rgba(255,255,255,0.5)'}; box-shadow: 0 1px 2px rgba(0,0,0,0.3);"></div>
+                `).join('')}
               </div>
             ` : ''}
           </div>
-          <div style="padding: 12px;">
-            <div style="font-size: 20px; font-weight: 700; color: #111;">${formatPrice(listing.price)}</div>
-            <div style="display: flex; gap: 12px; margin-top: 4px; font-size: 13px; color: #444;">
-              <span><strong>${listing.bedrooms}</strong> bd</span>
+          <div style="padding: 14px 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div style="font-size: 22px; font-weight: 700; color: #111;">${formatPrice(listing.price)}</div>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 6px; font-size: 14px; color: #333;">
+              <span><strong>${listing.bedrooms}</strong> bds</span>
+              <span style="color: #999;">|</span>
               <span><strong>${listing.bathrooms}</strong> ba</span>
+              <span style="color: #999;">|</span>
               <span><strong>${listing.sqft?.toLocaleString() || '—'}</strong> sqft</span>
+              <span style="color: #999;">-</span>
+              <span style="color: #666;">${listing.status || 'Active'}</span>
             </div>
-            <div style="margin-top: 8px; font-size: 13px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-              ${listing.address?.street || ''}, ${listing.address?.city || ''}
+            <div style="margin-top: 10px; font-size: 14px; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              ${listing.address?.street || ''}, ${listing.address?.city || ''}, TX ${listing.address?.zip || ''}
             </div>
-            <div style="margin-top: 4px; font-size: 11px; color: #888;">
-              MLS# ${listing.mlsNumber}
+            <div style="margin-top: 6px; font-size: 11px; color: #888; text-transform: uppercase;">
+              ${listing.brokerage || 'SPYGLASS REALTY'}
             </div>
           </div>
         </div>
@@ -187,20 +204,30 @@ export function LeafletMap({
 
       marker.bindPopup(popupContent, {
         closeButton: true,
-        maxWidth: 300,
-        minWidth: 280,
+        maxWidth: 320,
+        minWidth: 300,
         className: 'listing-popup-container',
-        offset: [0, -10]
+        offset: [0, -15]
       });
 
       marker
         .on('click', () => {
-          // Open popup on click
+          // Only open popup on click - don't trigger the full overlay
           marker.openPopup();
-          onSelectListing?.(listing);
         })
         .on('mouseover', () => onHoverListing?.(listing))
         .on('mouseout', () => onHoverListing?.(null));
+
+      // Add click handler for the popup card after it opens
+      marker.on('popupopen', () => {
+        const popupEl = document.querySelector('.listing-popup-container .listing-popup');
+        if (popupEl) {
+          popupEl.addEventListener('click', (e) => {
+            // Navigate to the listing detail page
+            onSelectListing?.(listing);
+          });
+        }
+      });
 
       markersRef.current.set(listing.id, marker);
     });
